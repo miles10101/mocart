@@ -5,22 +5,33 @@ const VirtualWarehouse = () => {
   const [products, setProducts] = useState([]);
   const [email, setEmail] = useState('');
   const [importedProducts, setImportedProducts] = useState([]);
+  const [vendorId, setVendorId] = useState('');
 
   useEffect(() => {
-    // Check the logged-in user's email
-    const getUserEmail = async () => {
+    // Check the logged-in user's email and vendor ID
+    const getUserDetails = async () => {
       const { data, error } = await supabase.auth.getSession();
       if (error) {
         console.error('Error fetching session:', error);
       } else {
         if (data.session) {
           setEmail(data.session.user.email);
-          console.log('Logged-in email:', data.session.user.email);
+          const user = data.session.user;
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', user.email);
+
+          if (profileData && profileData.length > 0) {
+            setVendorId(profileData[0].id);
+          } else if (profileError) {
+            console.error('Error fetching profile:', profileError);
+          }
         }
       }
     };
 
-    getUserEmail();
+    getUserDetails();
   }, []);
 
   useEffect(() => {
@@ -43,13 +54,13 @@ const VirtualWarehouse = () => {
 
   // Fetch imported products for the logged-in email
   useEffect(() => {
-    if (email) {
+    if (vendorId) {
       const fetchImportedProducts = async () => {
         try {
           const { data, error } = await supabase
             .from('vendorcatalog')
             .select('product_sku')
-            .eq('email', email);
+            .eq('vendor_id', vendorId);
           if (error) {
             console.error('Error fetching imported products:', error);
           } else {
@@ -63,7 +74,7 @@ const VirtualWarehouse = () => {
 
       fetchImportedProducts();
     }
-  }, [email]);
+  }, [vendorId]);
 
   // Handle the import action
   const importProduct = async (product) => {
@@ -73,8 +84,9 @@ const VirtualWarehouse = () => {
       const { data, error } = await supabase
         .from('vendorcatalog')
         .insert([{ 
+          vendor_id: vendorId,
           email: email,
-          product_sku: product.product_sku
+          product_sku: product.product_sku 
         }]);
       if (error) {
         console.error('Error inserting email into vendorcatalog:', error);
@@ -95,7 +107,7 @@ const VirtualWarehouse = () => {
       const { data, error } = await supabase
         .from('vendorcatalog')
         .delete()
-        .eq('email', email)
+        .eq('vendor_id', vendorId)
         .eq('product_sku', product.product_sku);
       if (error) {
         console.error('Error deleting record from vendorcatalog:', error);

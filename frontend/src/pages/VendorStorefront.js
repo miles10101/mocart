@@ -1,39 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import supabase from '../supabaseClient';
 import EmailPopup from '../components/EmailPopup'; // Ensure this path is correct
 
 const VendorStorefront = () => {
+  const { vendor_id } = useParams(); // Get vendor_id from URL
   const [storefrontProducts, setStorefrontProducts] = useState([]);
   const [showEmailPopup, setShowEmailPopup] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantities, setQuantities] = useState({});
   const [addedToCart, setAddedToCart] = useState({}); // Track added to cart status
-  const [vendorEmail, setVendorEmail] = useState(''); // State to store vendor email
 
   useEffect(() => {
-    const getUserEmail = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error fetching session:', error);
-      } else {
-        if (data.session) {
-          setVendorEmail(data.session.user.email);
-          console.log('Logged-in vendor email:', data.session.user.email);
-        }
-      }
-    };
-
-    getUserEmail();
-  }, []);
-
-  useEffect(() => {
-    if (vendorEmail) {
+    if (vendor_id) {
       const fetchStorefrontProducts = async () => {
         try {
           const { data, error } = await supabase
             .from('vendorcatalog')
-            .select('product_sku')
-            .eq('email', vendorEmail);
+            .select('*')
+            .eq('vendor_id', vendor_id); // Fetch products by vendor_id
           if (error) {
             console.error('Error fetching storefront products:', error);
           } else {
@@ -47,7 +32,7 @@ const VendorStorefront = () => {
 
       fetchStorefrontProducts();
     }
-  }, [vendorEmail]);
+  }, [vendor_id]);
 
   const handleAddToCart = (product) => {
     if (addedToCart[product.product_sku]) {
@@ -67,7 +52,7 @@ const VendorStorefront = () => {
         .from('cart')
         .insert([
           {
-            vendor_email: vendorEmail,
+            vendor_id,
             buyer_email: buyerEmail,
             product_sku: selectedProduct.product_sku,
             quantity: quantities[selectedProduct.product_sku] || 1,
@@ -117,7 +102,7 @@ const VendorStorefront = () => {
 
   return (
     <div>
-      <h1>My Storefront</h1>
+      <h1>Vendor Storefront</h1>
       {showEmailPopup && (
         <EmailPopup
           onSubmit={handleEmailSubmit}
@@ -126,7 +111,7 @@ const VendorStorefront = () => {
       )}
       <div>
         {storefrontProducts.length === 0 ? (
-          <p>No products in your storefront</p>
+          <p>No products in this storefront</p>
         ) : (
           storefrontProducts.map((product) => (
             <div key={product.product_sku}>

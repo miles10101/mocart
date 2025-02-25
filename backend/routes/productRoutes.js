@@ -1,9 +1,9 @@
-// routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
-const { getAllProducts, createProduct } = require('../controllers/productController');
+const { getAllProducts, createProduct, getProductsByVendor } = require('../controllers/productController');
 
-router.get('/', getAllProducts);
+// Update the route to accept vendor_id query parameter
+router.get('/', getProductsByVendor);
 router.post('/', createProduct);
 
 module.exports = router;

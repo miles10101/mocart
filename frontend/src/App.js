@@ -16,7 +16,7 @@ const App = () => {
         <Route path="/vendor-signup" element={<VendorSignupPage />} />
         <Route path="/vendor-dashboard" element={<VendorDashboard />} />
         <Route path="/virtual-warehouse" element={<VirtualWarehouse />} />
-        <Route path="/vendor-storefront" element={<VendorStorefront />} />
+        <Route path="/vendor-storefront/:vendor_id" element={<VendorStorefront />} /> {/* Updated route */}
       </Routes>
     </Router>
   );
