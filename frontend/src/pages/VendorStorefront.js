@@ -1,61 +1,101 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import supabase from '../supabaseClient';
-import EmailPopup from '../components/EmailPopup'; // Ensure this path is correct
+import { v4 as uuidv4 } from 'uuid'; // Import uuid for generating unique session IDs
 
 const VendorStorefront = () => {
   const { vendor_id } = useParams(); // Get vendor_id from URL
+  const navigate = useNavigate(); // Use navigate to redirect to GuestCart
   const [storefrontProducts, setStorefrontProducts] = useState([]);
-  const [showEmailPopup, setShowEmailPopup] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantities, setQuantities] = useState({});
-  const [addedToCart, setAddedToCart] = useState({}); // Track added to cart status
+  const [addedToCart, setAddedToCart] = useState({});
+  const [vendorEmail, setVendorEmail] = useState(''); // Track vendor email
 
   useEffect(() => {
-    if (vendor_id) {
-      const fetchStorefrontProducts = async () => {
+    const clearPreviousSessionCart = async (session_id) => {
+      try {
+        await supabase
+          .from('guest_cart')
+          .delete()
+          .eq('session_id', session_id);
+      } catch (err) {
+        console.error('Error clearing previous session cart:', err);
+      }
+    };
+
+    // Check if a session ID exists
+    const existingSessionId = localStorage.getItem('session_id');
+
+    if (existingSessionId) {
+      // Clear the cart for the previous session
+      clearPreviousSessionCart(existingSessionId);
+    }
+
+    // Generate and store a new unique session ID
+    const newSessionId = uuidv4();
+    localStorage.setItem('session_id', newSessionId);
+  }, []);
+
+  useEffect(() => {
+    const fetchVendorEmail = async () => {
+      if (vendor_id) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', vendor_id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching vendor email:', error);
+          } else {
+            setVendorEmail(data.email);
+          }
+        } catch (err) {
+          console.error('Fetch vendor email exception:', err);
+        }
+      }
+    };
+
+    const fetchStorefrontProducts = async () => {
+      if (vendor_id) {
         try {
           const { data, error } = await supabase
             .from('vendorcatalog')
             .select('*')
-            .eq('vendor_id', vendor_id); // Fetch products by vendor_id
+            .eq('vendor_id', vendor_id);
+
           if (error) {
             console.error('Error fetching storefront products:', error);
           } else {
-            console.log('Fetched storefront products:', data);
             setStorefrontProducts(data);
           }
         } catch (err) {
           console.error('Fetch storefront products exception:', err);
         }
-      };
+      }
+    };
 
-      fetchStorefrontProducts();
-    }
+    fetchVendorEmail();
+    fetchStorefrontProducts();
   }, [vendor_id]);
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = async (product) => {
     if (addedToCart[product.product_sku]) {
       return;
     }
-    setSelectedProduct(product);
-    setShowEmailPopup(true);
-  };
 
-  const handleEmailSubmit = async (buyerEmail) => {
-    if (!buyerEmail) {
-      return;
-    }
+    const session_id = localStorage.getItem('session_id');
 
     try {
       const { error } = await supabase
-        .from('cart')
+        .from('guest_cart')
         .insert([
           {
-            vendor_id,
-            buyer_email: buyerEmail,
-            product_sku: selectedProduct.product_sku,
-            quantity: quantities[selectedProduct.product_sku] || 1,
+            session_id,
+            product_sku: product.product_sku,
+            quantity: quantities[product.product_sku] || 1,
+            vendor_email: vendorEmail // Add vendor email to cart item
           },
         ]);
 
@@ -65,18 +105,12 @@ const VendorStorefront = () => {
         console.log('Product added to cart successfully');
         setAddedToCart((prev) => ({
           ...prev,
-          [selectedProduct.product_sku]: true,
+          [product.product_sku]: true,
         }));
       }
     } catch (err) {
       console.error('Exception adding to cart:', err);
     }
-
-    setShowEmailPopup(false);
-  };
-
-  const handleCancel = () => {
-    setShowEmailPopup(false);
   };
 
   const handleQuantityChange = (productSku, newQuantity) => {
@@ -100,15 +134,14 @@ const VendorStorefront = () => {
     }));
   };
 
+  const handleViewCart = () => {
+    navigate('/guest-cart'); // Navigate to GuestCart
+  };
+
   return (
     <div>
       <h1>Vendor Storefront</h1>
-      {showEmailPopup && (
-        <EmailPopup
-          onSubmit={handleEmailSubmit}
-          onCancel={handleCancel}
-        />
-      )}
+      <button onClick={handleViewCart}>View My Cart</button> {/* Add View My Cart button */}
       <div>
         {storefrontProducts.length === 0 ? (
           <p>No products in this storefront</p>
