@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '../supabaseClient';
+import '../styles.css'; // Import the CSS file
 
 const VirtualWarehouse = () => {
   const [products, setProducts] = useState([]);
   const [email, setEmail] = useState('');
   const [importedProducts, setImportedProducts] = useState([]);
   const [vendorId, setVendorId] = useState('');
+  const [profit, setProfit] = useState('');
+  const [retailPrice, setRetailPrice] = useState('');
+  const [showPopup, setShowPopup] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Check the logged-in user's email and vendor ID
@@ -77,25 +83,56 @@ const VirtualWarehouse = () => {
   }, [vendorId]);
 
   // Handle the import action
-  const importProduct = async (product) => {
+  const handleImportClick = (product) => {
+    console.log('Import button clicked for product:', product);
+    setCurrentProduct(product);
+    setShowPopup(true);
+  };
+
+  const handleProfitChange = (e) => {
+    const profitValue = parseFloat(e.target.value);
+    setProfit(profitValue);
+
+    // Calculate the retail price in real-time
+    const wholesalePrice = currentProduct.wholesale_price;
+    const retailPriceValue = (wholesalePrice + profitValue) / 0.85;
+    setRetailPrice(retailPriceValue.toFixed(2));
+  };
+
+  const importProduct = async () => {
+    if (!profit) {
+      alert('Please enter a profit.');
+      return;
+    }
+    setIsSubmitting(true);
+
     try {
-      console.log('Import button clicked for product:', product);
+      console.log('Confirm button clicked with profit:', profit);
+      console.log('Current product:', currentProduct);
       console.log('Logged-in email:', email);
       const { data, error } = await supabase
         .from('vendorcatalog')
         .insert([{ 
           vendor_id: vendorId,
           email: email,
-          product_sku: product.product_sku 
+          product_sku: currentProduct.product_sku,
+          retail_price: parseFloat(retailPrice),
+          wholesale_price: currentProduct.wholesale_price,
+          profit: parseFloat(profit)
         }]);
       if (error) {
-        console.error('Error inserting email into vendorcatalog:', error);
+        console.error('Error inserting product into vendorcatalog:', error);
       } else {
-        console.log('Email inserted into vendorcatalog:', data);
-        setImportedProducts((prev) => [...prev, product.product_sku]);
+        console.log('Product inserted into vendorcatalog:', data);
+        setImportedProducts((prev) => [...prev, currentProduct.product_sku]);
+        setShowPopup(false);
+        setProfit('');
+        setRetailPrice('');
       }
     } catch (err) {
       console.error('Import product exception:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -136,12 +173,28 @@ const VirtualWarehouse = () => {
               {importedProducts.includes(product.product_sku) ? (
                 <button onClick={() => delistProduct(product)}>Delist from my storefront</button>
               ) : (
-                <button onClick={() => importProduct(product)}>Import to my storefront</button>
+                <button onClick={() => handleImportClick(product)}>Import to my storefront</button>
               )}
             </div>
           ))
         )}
       </div>
+      {showPopup && (
+        <div className="popup">
+          <div className="popup-content">
+            <h3>Enter Profit</h3>
+            <input 
+              type="number" 
+              value={profit} 
+              onChange={handleProfitChange} 
+              placeholder="Enter profit"
+            />
+            <p>Retail Price (inclusive of fees): ${retailPrice}</p>
+            <button onClick={importProduct} disabled={isSubmitting}>Confirm</button>
+            <button onClick={() => setShowPopup(false)} disabled={isSubmitting}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

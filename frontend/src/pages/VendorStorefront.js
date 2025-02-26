@@ -95,7 +95,8 @@ const VendorStorefront = () => {
             session_id,
             product_sku: product.product_sku,
             quantity: quantities[product.product_sku] || 1,
-            vendor_email: vendorEmail // Add vendor email to cart item
+            vendor_email: vendorEmail, // Add vendor email to cart item
+            price: product.retail_price // Add product price to cart item
           },
         ]);
 
@@ -149,6 +150,7 @@ const VendorStorefront = () => {
           storefrontProducts.map((product) => (
             <div key={product.product_sku}>
               <p>Product SKU: {product.product_sku}</p>
+              <p>Price: ${product.retail_price}</p> {/* Display product price */}
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <button onClick={() => decrementQuantity(product.product_sku)}>-</button>
                 <input

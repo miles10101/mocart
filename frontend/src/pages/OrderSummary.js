@@ -34,9 +34,12 @@ const OrderSummary = () => {
   // Extract common details (phone number, pickup point) from the first item
   const commonDetails = orderDetails.length > 0 ? orderDetails[0] : {};
 
+  // Calculate the total price for the whole order
+  const totalOrderPrice = orderDetails.reduce((acc, item) => acc + item.total_price, 0);
+
   return (
     <div>
-      <h2>Order Placed</h2>
+      <h2>Thank You For Shopping With Us!</h2>
       <p>Estimated arrival time: 1-3 days. We will notify you when your package arrives.</p>
       <p>Pay on delivery at pickup.</p>
       <h3>Order Summary:</h3>
@@ -49,10 +52,11 @@ const OrderSummary = () => {
           <ul>
             {orderDetails.map((item) => (
               <li key={item.id}>
-                Product SKU: {item.product_sku} - Quantity: {item.quantity}
+                Product SKU: {item.product_sku} - Quantity: {item.quantity} - Price: ${item.price} - Total Price: ${item.total_price.toFixed(2)}
               </li>
             ))}
           </ul>
+          <h3>Total Order Price: ${totalOrderPrice.toFixed(2)}</h3> {/* Display total order price */}
         </div>
       )}
     </div>
