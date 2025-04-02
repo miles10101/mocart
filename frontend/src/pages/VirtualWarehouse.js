@@ -118,7 +118,8 @@ const VirtualWarehouse = () => {
           product_sku: currentProduct.product_sku,
           retail_price: parseFloat(retailPrice),
           wholesale_price: currentProduct.wholesale_price,
-          profit: parseFloat(profit)
+          profit: parseFloat(profit),
+          availability: currentProduct.availability // Added availability here
         }]);
       if (error) {
         console.error('Error inserting product into vendorcatalog:', error);

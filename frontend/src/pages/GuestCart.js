@@ -28,7 +28,6 @@ const GuestCart = () => {
         if (error) {
           console.error('Error fetching cart items:', error);
         } else {
-          // Calculate total_price for each item and update the state
           const itemsWithTotalPrice = data.map(item => ({
             ...item,
             total_price: item.price * item.quantity
@@ -120,8 +119,14 @@ const GuestCart = () => {
   const handleConfirmCheckout = async () => {
     const session_id = localStorage.getItem('session_id');
 
+    if (!session_id) {
+      console.error('Session ID is missing or invalid.');
+      alert('Session expired. Please refresh and try again.');
+      return;
+    }
+
     try {
-      // Copy records from guest_cart to orders table
+      // Step 1: Copy records from guest_cart to orders table
       for (const item of cartItems) {
         const { error } = await supabase
           .from('orders')
@@ -143,28 +148,57 @@ const GuestCart = () => {
 
         if (error) {
           console.error('Error copying to orders:', error);
+          alert('An error occurred during checkout. Please try again.');
           return; // Exit on error
         }
       }
 
-      // Clear guest_cart after copying to orders
-      const { error: clearError } = await supabase
-        .from('guest_cart')
-        .delete()
-        .eq('session_id', session_id);
+      // Step 2: Call Supabase function to clear the cart
+      const { error: clearError } = await supabase.rpc('clear_cart_on_checkout', {
+        p_session_id: session_id,
+      });
 
       if (clearError) {
         console.error('Error clearing guest_cart:', clearError);
+        alert('An error occurred while clearing your cart. Please try again.');
       } else {
-        console.log('Guest cart cleared successfully');
+        console.log('Guest cart cleared successfully.');
       }
 
       setShowCheckoutPopup(false);
       navigate('/order-summary', { state: { session_id, email } });
     } catch (err) {
       console.error('Exception during checkout:', err);
+      alert('A server error occurred. Please try again later.');
     }
   };
+
+  const handleClearCart = async () => {
+    const session_id = localStorage.getItem('session_id');
+  
+    if (!session_id) {
+      alert('Session expired. Please refresh and try again.');
+      return;
+    }
+  
+    try {
+      // Call Supabase function to restore inventory and clear cart
+      const { error } = await supabase.rpc('restore_inventory_for_cart', {
+        p_session_id: session_id,
+      });
+  
+      if (error) {
+        console.error('Error clearing cart and restoring inventory:', error);
+        alert('An error occurred while clearing your cart and restoring inventory. Please try again.');
+      } else {
+        console.log('Cart cleared and inventory restored successfully.');
+        setCartItems([]); // Reset UI immediately
+      }
+    } catch (err) {
+      console.error('Exception clearing cart:', err);
+    }
+  };
+  
 
   // Calculate the total price for the whole order
   const totalOrderPrice = cartItems.reduce((acc, item) => acc + item.total_price, 0);
@@ -185,6 +219,7 @@ const GuestCart = () => {
           </ul>
           <h3>Total Order Price: ${totalOrderPrice.toFixed(2)}</h3> {/* Display total order price */}
           <button onClick={handleCheckout}>Proceed to Checkout</button>
+          <button onClick={handleClearCart}>Clear Cart</button>
         </>
       )}
       {showCheckoutPopup && (

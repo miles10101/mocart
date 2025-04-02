@@ -9,6 +9,7 @@ import VendorStorefront from './pages/VendorStorefront';
 import GuestCart from './pages/GuestCart'; // Import GuestCart
 import Checkout from './pages/Checkout'; // Import Checkout
 import OrderSummary from './pages/OrderSummary'; // Import OrderSummary
+import OutOfStockProducts from './pages/OutOfStockProducts'; // Import OutOfStockProducts
 
 const App = () => {
   return (
@@ -23,6 +24,7 @@ const App = () => {
         <Route path="/guest-cart" element={<GuestCart />} /> {/* Add GuestCart route */}
         <Route path="/checkout" element={<Checkout />} /> {/* Add Checkout route */}
         <Route path="/order-summary" element={<OrderSummary />} /> {/* Add OrderSummary route */}
+        <Route path="/out-of-stock-products" element={<OutOfStockProducts />} /> {/* Add OutOfStockProducts route */}
       </Routes>
     </Router>
   );

@@ -34,11 +34,16 @@ const VendorDashboard = () => {
     navigate(`/vendor-storefront/${vendorId}`); // Navigate to unique URL with vendor_id
   };
 
+  const goToOutOfStockProducts = () => {
+    navigate('/out-of-stock-products'); // Navigate to OutOfStockProducts page
+  };
+
   return (
     <div>
       <h1>Vendor Dashboard</h1>
       <button onClick={goToVirtualWarehouse}>Browse Virtual Warehouse</button>
       <button onClick={goToStoreFront}>View My Storefront</button>
+      <button onClick={goToOutOfStockProducts}>Out of Stock Products</button> {/* New button */}
     </div>
   );
 };
