@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import supabase from '../supabaseClient';
+import Payment from '../components/payment'; // Import the payment component
 
 const GuestCart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [showCheckoutPopup, setShowCheckoutPopup] = useState(false);
+  const [showPaymentPopup, setShowPaymentPopup] = useState(false); // New state for payment popup
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pickupCountry, setPickupCountry] = useState('');
@@ -116,7 +118,16 @@ const GuestCart = () => {
     setShowCheckoutPopup(true);
   };
 
-  const handleConfirmCheckout = async () => {
+  // New function: initiates the payment process by closing the checkout popup and showing the payment popup.
+  const handleInitiatePayment = () => {
+    setShowCheckoutPopup(false);
+    setShowPaymentPopup(true);
+  };
+
+  // New function: this is triggered after payment confirmation from the Payment component.
+  const handlePaymentConfirm = async () => {
+    setShowPaymentPopup(false); // Hide the payment popup
+
     const session_id = localStorage.getItem('session_id');
 
     if (!session_id) {
@@ -165,7 +176,6 @@ const GuestCart = () => {
         console.log('Guest cart cleared successfully.');
       }
 
-      setShowCheckoutPopup(false);
       navigate('/order-summary', { state: { session_id, email } });
     } catch (err) {
       console.error('Exception during checkout:', err);
@@ -199,7 +209,6 @@ const GuestCart = () => {
     }
   };
   
-
   // Calculate the total price for the whole order
   const totalOrderPrice = cartItems.reduce((acc, item) => acc + item.total_price, 0);
 
@@ -268,10 +277,19 @@ const GuestCart = () => {
                 <option key={station} value={station}>{station}</option>
               ))}
             </select>
-            <button onClick={handleConfirmCheckout}>Confirm</button>
+            {/* Changed the confirm button to initiate payment confirmation instead */}
+            <button onClick={handleInitiatePayment}>Confirm</button>
             <button onClick={() => setShowCheckoutPopup(false)}>Cancel</button>
           </div>
         </div>
+      )}
+      {/* New Payment component popup; passes phoneNumber and totalOrderPrice (in USD) to Payment */}
+      {showPaymentPopup && (
+        <Payment 
+          phoneNumber={phoneNumber} 
+          totalAmountUSD={totalOrderPrice}
+          onPaymentConfirm={handlePaymentConfirm} 
+        />
       )}
     </div>
   );

@@ -183,7 +183,7 @@ const VirtualWarehouse = () => {
       {showPopup && (
         <div className="popup">
           <div className="popup-content">
-            <h3>Enter Profit</h3>
+            <h3>Enter Target Profit (in USD)</h3>
             <input 
               type="number" 
               value={profit} 

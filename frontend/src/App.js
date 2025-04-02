@@ -10,6 +10,7 @@ import GuestCart from './pages/GuestCart'; // Import GuestCart
 import Checkout from './pages/Checkout'; // Import Checkout
 import OrderSummary from './pages/OrderSummary'; // Import OrderSummary
 import OutOfStockProducts from './pages/OutOfStockProducts'; // Import OutOfStockProducts
+import Payment from './components/payment'; // ✅ Added Payment component
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
         <Route path="/checkout" element={<Checkout />} /> {/* Add Checkout route */}
         <Route path="/order-summary" element={<OrderSummary />} /> {/* Add OrderSummary route */}
         <Route path="/out-of-stock-products" element={<OutOfStockProducts />} /> {/* Add OutOfStockProducts route */}
+        <Route path="/payment" element={<Payment phoneNumber="0712345678" onPaymentConfirm={() => alert("Payment Confirmed")} />} /> {/* ✅ Added Payment route */}
       </Routes>
     </Router>
   );
