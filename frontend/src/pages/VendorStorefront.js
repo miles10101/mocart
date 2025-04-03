@@ -13,6 +13,7 @@ const VendorStorefront = () => {
   const [addedToCart, setAddedToCart] = useState({});
   const [vendorEmail, setVendorEmail] = useState(''); // Track vendor email
   const [availabilityMap, setAvailabilityMap] = useState({}); // Track availability for products
+  const [variantSelection, setVariantSelection] = useState({}); // For variant groups
 
   useEffect(() => {
     const clearPreviousSessionCart = async (session_id) => {
@@ -22,24 +23,55 @@ const VendorStorefront = () => {
         console.error('Error clearing previous session cart and restoring inventory:', err);
       }
     };
-  
+
     const initializeSession = () => {
       const existingSessionId = localStorage.getItem('session_id');
-  
+
       if (existingSessionId) {
         // Clear cart from previous session using Supabase function
         clearPreviousSessionCart(existingSessionId);
       }
-  
+
       // Generate and store a new session ID
       const newSessionId = uuidv4();
       localStorage.setItem('session_id', newSessionId);
       console.log('New session ID generated:', newSessionId);
     };
-  
+
     initializeSession();
   }, []);
-  
+
+  // Group products based on the 'variants' field.
+  // If 'variants' is not null, use that value as the group key;
+  // otherwise, group standalone products by their own product_sku.
+  const groupProductsByVariants = (products) => {
+    const groups = {};
+    products.forEach((product) => {
+      if (product.variants) {
+        const groupKey = product.variants;
+        if (!groups[groupKey]) groups[groupKey] = [];
+        groups[groupKey].push(product);
+      } else {
+        groups[product.product_sku] = [product];
+      }
+    });
+    return Object.keys(groups).map((key) => {
+      const group = groups[key];
+      if (group[0].variants) {
+        return {
+          groupKey: key,
+          isVariantGroup: true,
+          variants: group,
+        };
+      } else {
+        return {
+          groupKey: key,
+          isVariantGroup: false,
+          product: group[0],
+        };
+      }
+    });
+  };
 
   // Fetch vendor email and storefront products
   useEffect(() => {
@@ -72,7 +104,9 @@ const VendorStorefront = () => {
           if (error) {
             console.error('Error fetching storefront products:', error);
           } else {
-            setStorefrontProducts(data);
+            // Group fetched products by variants before setting state
+            const groupedProducts = groupProductsByVariants(data);
+            setStorefrontProducts(groupedProducts);
 
             // Build availability map based on custom logic (or use product.availability directly)
             const availabilityData = {};
@@ -110,17 +144,27 @@ const VendorStorefront = () => {
           console.log('Realtime update payload:', payload);
 
           setStorefrontProducts((prev) =>
-            prev.map((product) =>
-              product.product_sku === payload.new.product_sku
-                ? { ...product, availability: payload.new.availability }
-                : product
-            )
+            prev.map((group) => {
+              if (group.isVariantGroup) {
+                const newVariants = group.variants.map((variant) => {
+                  if (variant.product_sku === payload.new.product_sku) {
+                    return { ...variant, availability: payload.new.availability };
+                  }
+                  return variant;
+                });
+                return { ...group, variants: newVariants };
+              } else {
+                if (group.product.product_sku === payload.new.product_sku) {
+                  return { ...group, product: { ...group.product, availability: payload.new.availability } };
+                }
+                return group;
+              }
+            })
           );
 
           setAvailabilityMap((prev) => ({
             ...prev,
-            [payload.new.product_sku]:
-              payload.new.availability.toLowerCase() !== 'out of stock',
+            [payload.new.product_sku]: payload.new.availability.toLowerCase() !== 'out of stock',
           }));
         }
       )
@@ -204,34 +248,98 @@ const VendorStorefront = () => {
         {storefrontProducts.length === 0 ? (
           <p>No products in this storefront</p>
         ) : (
-          storefrontProducts.map((product) => (
-            <div key={product.product_sku}>
-              <p>Product SKU: {product.product_sku}</p>
-              <p>Price: ${product.retail_price}</p>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <button onClick={() => decrementQuantity(product.product_sku)}>-</button>
-                <input
-                  type="number"
-                  value={quantities[product.product_sku] || 1}
-                  onChange={(e) =>
-                    handleQuantityChange(product.product_sku, parseInt(e.target.value, 10))
-                  }
-                  style={{ width: '50px', textAlign: 'center', margin: '0 10px' }}
-                />
-                <button onClick={() => incrementQuantity(product.product_sku)}>+</button>
-              </div>
-              <button
-                onClick={() => handleAddToCart(product)}
-                disabled={!availabilityMap[product.product_sku] || addedToCart[product.product_sku]}
-              >
-                {!availabilityMap[product.product_sku]
-                  ? 'Out of Stock'
-                  : addedToCart[product.product_sku]
-                  ? 'Already Added to Cart'
-                  : 'Add to Cart'}
-              </button>
-            </div>
-          ))
+          storefrontProducts.map((group) => {
+            if (group.isVariantGroup) {
+              // For variant groups, determine the selected variant.
+              const defaultSku = String(group.variants[0].product_sku);
+              const selectedVariantSku = variantSelection[group.groupKey]
+                ? String(variantSelection[group.groupKey])
+                : defaultSku;
+              const selectedVariant =
+                group.variants.find((variant) => String(variant.product_sku) === selectedVariantSku) ||
+                group.variants[0];
+
+              return (
+                <div key={group.groupKey}>
+                  <p>Product SKU: {selectedVariant.product_sku}</p>
+                  <p>Price: ${selectedVariant.retail_price}</p>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <button onClick={() => decrementQuantity(selectedVariant.product_sku)}>-</button>
+                    <input
+                      type="number"
+                      value={quantities[selectedVariant.product_sku] || 1}
+                      onChange={(e) =>
+                        handleQuantityChange(selectedVariant.product_sku, parseInt(e.target.value, 10))
+                      }
+                      style={{ width: '50px', textAlign: 'center', margin: '0 10px' }}
+                    />
+                    <button onClick={() => incrementQuantity(selectedVariant.product_sku)}>+</button>
+                  </div>
+                  <select
+                    onChange={(e) =>
+                      setVariantSelection({
+                        ...variantSelection,
+                        [group.groupKey]: e.target.value,
+                      })
+                    }
+                    value={variantSelection[group.groupKey] || defaultSku}
+                  >
+                    {group.variants.map((variant) => (
+                      <option key={variant.product_sku} value={String(variant.product_sku)}>
+                        {variant.option1 ? variant.option1 : variant.product_name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleAddToCart(selectedVariant)}
+                    disabled={
+                      !availabilityMap[selectedVariant.product_sku] ||
+                      addedToCart[selectedVariant.product_sku]
+                    }
+                  >
+                    {!availabilityMap[selectedVariant.product_sku]
+                      ? 'Out of Stock'
+                      : addedToCart[selectedVariant.product_sku]
+                      ? 'Already Added to Cart'
+                      : 'Add to Cart'}
+                  </button>
+                </div>
+              );
+            } else {
+              const product = group.product;
+              return (
+                <div key={product.product_sku}>
+                  <p>Product SKU: {product.product_sku}</p>
+                  <p>Price: ${product.retail_price}</p>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <button onClick={() => decrementQuantity(product.product_sku)}>-</button>
+                    <input
+                      type="number"
+                      value={quantities[product.product_sku] || 1}
+                      onChange={(e) =>
+                        handleQuantityChange(product.product_sku, parseInt(e.target.value, 10))
+                      }
+                      style={{ width: '50px', textAlign: 'center', margin: '0 10px' }}
+                    />
+                    <button onClick={() => incrementQuantity(product.product_sku)}>+</button>
+                  </div>
+                  <button
+                    onClick={() => handleAddToCart(product)}
+                    disabled={
+                      !availabilityMap[product.product_sku] ||
+                      addedToCart[product.product_sku]
+                    }
+                  >
+                    {!availabilityMap[product.product_sku]
+                      ? 'Out of Stock'
+                      : addedToCart[product.product_sku]
+                      ? 'Already Added to Cart'
+                      : 'Add to Cart'}
+                  </button>
+                </div>
+              );
+            }
+          })
         )}
       </div>
     </div>
